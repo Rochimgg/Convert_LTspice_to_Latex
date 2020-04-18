@@ -1,4 +1,4 @@
 
-*.iws
+#*.iws
 out/
 .idea/*
