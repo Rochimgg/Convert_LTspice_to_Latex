@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 import os
 def ConvertForAllLTspiceFilesFormFolderToTEX(path='.', lt_spice_directory = r'C:\Program Files\LTC\LTspiceXVII\lib\sym', fullExample=0):
@@ -18,10 +19,9 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 	
 	saveFile = filenameLTspice[0:-len(filenameLTspice.split('.')[-1])] + r'tex'
 	
-	if not lt_spice_directory[-1] == '\\':
-		lt_spice_directory = lt_spice_directory + '\\'
+	if not lt_spice_directory[-1] == os.path.sep:
+		lt_spice_directory = lt_spice_directory + os.path.sep
 
-		
 	def print2(zuPrint):
 		idx = 0;
 		for xx in zuPrint:
@@ -30,14 +30,14 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 			for x in xx:
 				print('{:>15}'.format(str(x)), end =" ")
 			print(' ')
-			
+
 	def first_item(list_or_none):
 		if list_or_none: return list_or_none[0]
-			
+
 	def findPinsInLib(name):
 		with open(lt_spice_directory + name + ".asy", "r") as f:
 			sym = f.readlines()
-		
+
 		pin = []
 		words = []
 		for line in sym:
@@ -45,7 +45,7 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 			if words[0] == 'PIN':
 				pin.append((int(words[1]),-int(words[2])))
 		return pin
-		
+
 
 	def KnotenSuche(koordinate):
 		Knoten = [idx for idx, x1 in enumerate(KnotenListe) if x1[0] == koordinate]
@@ -53,18 +53,18 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 			Knoten = [len(KnotenListe)]
 			KnotenListe.append([koordinate, [], [],[]])
 		return Knoten[0]
-		
+
 
 	def drahtADD(befehl):
 		x1 = (int(befehl[1]) , -int(befehl[2]))
 		x2 = (int(befehl[3]) , -int(befehl[4]))
 		anzahlDrat = len(DrahtListe)
-		
+
 		Knoten1 = KnotenSuche(x1)
 		Knoten2 = KnotenSuche(x2)
 		KnotenListe[Knoten1][1].append(anzahlDrat)
 		KnotenListe[Knoten2][1].append(anzahlDrat)
-		
+
 		DrahtListe.append([Knoten1,Knoten2])
 
 	def gndTxtADD(befehl):
@@ -77,14 +77,14 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 		else:
 			text = ' '.join(befehl[5:]).replace(';', '')
 			Bauteilliste.append([Knoten, 'TEXT', text,[]])
-		
+
 	def bauteilADD(idx,befehl):
-		
-		
+
+
 		x = np.array([int(befehl[2]) , -int(befehl[3])])
 		pin = findPinsInLib(befehl[1])
 		anzahlBauteil = len(Bauteilliste)
-		
+
 		Rotation = {
 			'R0': [[1,0],[0,1]],
 			'R90': [[0,-1],[1,0]],
@@ -94,15 +94,15 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 			'M90': [[0,-1],[-1,0]],
 			'M180': [[1,0],[0,-1]],
 			'M270': [[0,1],[1,0]],}
-		
+
 		pin = np.dot(pin, Rotation[befehl[4]])
-		
+
 		KnotenSpeicher = []
 		for pinn in pin:
 			Knoten = KnotenSuche(tuple(pinn+x))
 			KnotenSpeicher.append(Knoten)
 			KnotenListe[Knoten][2].append(anzahlBauteil)
-		
+
 		bauteilbezeichnung = ''
 		for i in range(idx+1,idx+4):
 			if words[i][0]== 'SYMATTR':
@@ -110,7 +110,7 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 				if bauteilbezeichnung.count('_')>0 and bauteilbezeichnung.count('$')<2:
 					bauteilbezeichnung = r'$'+bauteilbezeichnung+r'$'
 				break;
-		
+
 		global count_bauelemente
 		global BauteileAddSpeicher
 		knotenbez = []
@@ -118,16 +118,16 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 			if not befehl[1] in BauteileAddSpeicher:
 				print('The following component is new: ' + befehl[1])
 				BauteileAddSpeicher.append(befehl[1])
-			
+
 			knotenbez = []
 			for ind,t in enumerate(pin):
 				knotenbez.append('B'+str(count_bauelemente)+ ' X' + str(ind))
-				
+
 			count_bauelemente = count_bauelemente +1;
 			befehl[1] = befehl[1] + ' ' + (befehl[4]+'  ')[0:4]
 			for t,  name in enumerate(knotenbez):
 				KnotenListe[KnotenSpeicher[t]][3] = name
-		
+
 		if not befehl[1] in bauteilmoeglich and befehl[1] in SpezialBauteilName:
 			knotenbez = SpezialBauteilName[befehl[1]]  #[]
 			knotenbez = ['B'+str(count_bauelemente)+'.'+t for t in knotenbez]
@@ -136,7 +136,7 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 				if bauteilmoeglichSpezial[befehl[1]].count('yscale=-1'):
 					befehl[1] = befehl[1] + r',yscale=-1'+ ',xscale=-1' + ',rotate='+'-'+befehl[4][1:]+ r',yscale=-1' #+'\b'+'\b'+'1'
 				else:
-					befehl[1] = befehl[1]+ ',xscale=-1' +',rotate='+'-'+befehl[4][1:]          
+					befehl[1] = befehl[1]+ ',xscale=-1' +',rotate='+'-'+befehl[4][1:]
 			else:
 				if bauteilmoeglichSpezial[befehl[1]].count('yscale=-1'):
 					befehl[1] = befehl[1] + r',yscale=-1'+',rotate='+'-'+befehl[4][1:]+ r',yscale=-1'
@@ -144,22 +144,22 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 					befehl[1] = befehl[1]+',rotate='+'-'+befehl[4][1:]
 			for t,  name in enumerate(knotenbez):
 				KnotenListe[KnotenSpeicher[t]][3] = name
-		
+
 		Bauteilliste.append([KnotenSpeicher, befehl[1], bauteilbezeichnung,knotenbez])
-		
+
 	def KoordinatenKnotenSkalieren(scale):
 		for idx, x in enumerate(KnotenListe):
 			KnotenListe[idx][0] = np.array(KnotenListe[idx][0])*scale
-			
+
 	def listsearch(x,y):
 		return next((i for i,t in enumerate(x) if t == y), None)
-			
+
 	def getKnotenname(knoten):
 		if KnotenListe[knoten][3]:
 			return '(' + str(KnotenListe[knoten][3]) + ')'
 		else:
 			return printXY(KnotenListe[knoten][0])
-			
+
 	SpezialBauteilName = {
 		'mesfet': ['D','G','S'],
 		'njf': ['D','G','S'],
@@ -189,7 +189,7 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 		'pnp': 'pnp,anchor=D,yscale=-1',
 		'pnp2': 'pnp,anchor=D,yscale=-1',
 		}
-			
+
 	bauteilmoeglich = {
 			'bi': 'controlled current source,i=\ ',
 			'bi2': 'controlled current source,i_=\ ',
@@ -223,12 +223,12 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 		ones = ["", "one","two","three","four", "five", "six","seven","eight","nine","ten"]
 		result = ''.join(ones[int(i)] if i.isdigit() else str(i) for i in name)
 		result = result.replace("-", "")
-		return result.replace("\\", "")
-							  
+		return result.replace("/", "")
+
 	def CreateDevFromLib(name, scale = 1/64):
 		with open(lt_spice_directory + name + ".asy", "r") as f:
 			sym = f.readlines()
-			
+
 		pin = []
 		pinName = []
 		line = []
@@ -253,11 +253,11 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 				text.append([int(words[1])*scale,-int(words[2])*scale ,words[3],' '.join(words[5:])])
 			if words[0] == 'WINDOW':      # Das wird nicht gezeichnet
 				window.append([int(words[2])*scale,-int(words[3])*scale])
-				
+
 		offset = pin[0] if pin else [0, 0]
-		
-		newLib = '\\def\\' + convertNeuName(str(name)) + r'(#1)#2#3{%' + '\n' +  r'  \begin{scope}[#1,transform canvas={scale=1}]' + '\n'
-		
+
+		newLib = '/def/' + convertNeuName(str(name)) + r'(#1)#2#3{%' + '\n' +  r'  \begin{scope}[#1,transform canvas={scale=1}]' + '\n'
+
 		for t in line:
 			newLib = newLib + r'  \draw ' + printXY(t[0:],offset) + ' -- ' + printXY(t[2:],offset) + ';' + '\n'
 		if window:#\draw  (2,0.5) node[left] {$x$};
@@ -287,14 +287,14 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 		for ind,t in enumerate(pin):
 			newLib = newLib + r'  \draw ' + printXY(t[0:],offset) + ' coordinate (#2 X' + str(ind) + ');' + '\n'
 			pinName.append('  X' + str(ind))
-			
+
 		newLib = newLib + r'  \end{scope}' + '\n'
-		
+
 		if window:
 			newLib = newLib + r'  \draw (#2 text) node[right] {#3};'+'\n'
-			
+
 		newLib = newLib + r'}' + '\n'
-			
+
 		return newLib
 
 
@@ -305,7 +305,7 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 	for line in data:
 		words.append( line.split())
 
-	
+
 	BauteileAddSpeicher = []
 	KnotenListe = []
 	Bauteilliste = []
@@ -315,29 +315,29 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 	for idx in enumerate(words):
 		if(idx[1][0] == 'WIRE'):
 			drahtADD(idx[1])
-			
+
 		if(idx[1][0] == 'FLAG' or idx[1][0] == 'TEXT'):
 			gndTxtADD(idx[1])
-			
+
 		if(idx[1][0] == 'SYMBOL'):
 			bauteilADD(idx[0],idx[1])
-			
+
 	KoordinatenKnotenSkalieren(1/64)
 
-	
+
 	for K1, K2 in DrahtListe:                                       #Draht, der zwei Bauelemente dierekt verbindet wird in zwei Teile geteilt
 		if (len(KnotenListe[K1][2]) == 1 and len(KnotenListe[K2][2]) == 1
 			 and len(KnotenListe[K1][1]) == 1 and len(KnotenListe[K2][1]) == 1):
-			
+
 			DrahtAlt = KnotenListe[K1][1][0]
-			
+
 			neuerDraht = len(DrahtListe)                             #Index für neuen Draht
 			KnotenListe[K2][1] = [neuerDraht]                          #neuen Draht mit K2 verbinden
-			
+
 			K3 = len(KnotenListe)                                    #Knoten zwischen den beiden alten Knoten hinzufügen
 			xyK3 = (KnotenListe[K1][0]+KnotenListe[K2][0])/2
-			KnotenListe.append([xyK3, [neuerDraht, DrahtAlt], [],[]])  
-			
+			KnotenListe.append([xyK3, [neuerDraht, DrahtAlt], [],[]])
+
 			DrahtListe.append([K3,K2])                               #neuen Draht hinzufügen
 			DrahtListe[DrahtAlt][1] = K3                             #Alten Draht mit neuem Knoten verbinden
 
@@ -348,8 +348,8 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 			KnotenListe[ind][3] = 'X' + str(knotenLaufIndex)
 			xy = printXY(KnotenListe[ind][0])
 			KnotenKoordinaten = KnotenKoordinaten + '\draw ' + xy + ' to[short,-*] ' + xy + ' coordinate (' + KnotenListe[ind][3] + ');\n'
-			knotenLaufIndex = knotenLaufIndex + 1 
-			
+			knotenLaufIndex = knotenLaufIndex + 1
+
 	#print('DrahtListe:')
 	#print('       [Index Knoten1]  [Index Knoten2]')
 	#print2(DrahtListe)
@@ -364,11 +364,11 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 	f = open(saveFile, "w")
 
 	if fullExample:
-		f.write('\\documentclass[a4paper,12pt]{article} \n\\pagestyle{empty} \n\\usepackage{amsmath} \n\\usepackage{tikz} \n\\usepackage[siunitx,european]{circuitikz}') 
+		f.write('\\documentclass[a4paper,12pt]{article} \n\\pagestyle{empty} \n\\usepackage{amsmath} \n\\usepackage{tikz} \n\\usepackage[siunitx,american]{circuitikz}')
 		f.write('\n \n\\begin{document} \n\\centering \n')
 
 	f.write('\\ctikzset{tripoles/mos style/arrows} \n\\begin{circuitikz}[transform shape,scale=1] \n \n')
-				
+
 	f.write(KnotenKoordinaten)
 
 	for t in BauteileAddSpeicher:
@@ -390,13 +390,13 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 					xy[idx] = K2
 					DrahtListe[DrahtNum] = []
 			f.write('\\draw %s to[%s,l=%s] %s ;\n' % (getKnotenname(xy[0]),bauteilmoeglich[Bauteil],Name,getKnotenname(xy[1])))
-			
+
 		if Bauteil == 'FLAG':
 			f.write('\\draw %s node[ground] {} ;\n' % (getKnotenname(Knoten),))
-			
+
 		if Bauteil== 'TEXT':
 			f.write('\\node[right] at %s {%s} ;\n' % (getKnotenname(Knoten),Name))
-			
+
 		temp = Bauteil.split(',')[0]
 		if temp in SpezialBauteilName:
 			rot = Bauteil[len(temp):]
@@ -413,26 +413,26 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{%s}} ;\n' % (printXY(KnotenListe[Knoten[0]][0]),bauteilmoeglichSpezial[Bauteil]+rot,tKnotenname,str(180+int(rotation)),Name))
 				else:
 					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{\\reflectbox{%s}}} ;\n' % (printXY(KnotenListe[Knoten[0]][0]),bauteilmoeglichSpezial[Bauteil]+rot,tKnotenname,str(-int(rotation)),Name))
-		
+
 		if Bauteil[:-5] in BauteileAddSpeicher:
 			rot = Bauteil[-4:]
 			if rot[0] == 'M':
-				rot =  'rotate=' + rot[1:] + ',xscale=-1' 
+				rot =  'rotate=' + rot[1:] + ',xscale=-1'
 			else:
 				rot =  'rotate=' + rot[1:]
-				
+
 			Bauteil = Bauteil[:-5]
 			tKnotenname = Knotenname[0].partition(" ")[0]
 			f.write('\\%s (shift={%s},%s) {%s} {%s};\n' % (convertNeuName(Bauteil), printXY(KnotenListe[Knoten[0]][0]),rot,tKnotenname,Name))
 	for x in DrahtListe:
-		if len(x) != 0: 
+		if len(x) != 0:
 			f.write('\\draw %s to[short,-] %s ;\n' % (getKnotenname(x[0]),getKnotenname(x[1])))
-		
-		
+
+
 	f.write('\n\\end{circuitikz}')
 	if fullExample:
 		f.write('\n\\end{document}')
-		
+
 	f.close()
 
 	print('Congratulations. The run was successful.')
