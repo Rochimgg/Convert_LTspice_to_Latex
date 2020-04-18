@@ -39,16 +39,4 @@ atlassian-ide-plugin.xml
 # Cursive Clojure plugin
 .idea/replstate.xml
 
-.idea/
-
-# Reason: https://github.com/joeblau/gitignore.io/issues/186#issuecomment-249601023
-
-*.iml
-modules.xml
-.idea/misc.xml
-*.ipr
-
-# Sonarlint plugin
-.idea/sonarlint
-
-# End of https://www.gitignore.io/api/intellij+all
+.idea/*
