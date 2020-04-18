@@ -1,26 +1,24 @@
 import numpy as np
 import os
 
-def ConvertForAllLTspiceFilesFormFolderToTEX(path='.', lt_spice_directory = r'C:\Program Files\LTC\LTspiceXVII\lib\sym', fullExample=0):
+def ConvertForAllLTspiceFilesFormFolderToTEX(path='.', lTSpiceDirectory = r'C:\Program Files\LTC\LTspiceXVII\lib\sym', fullExample=0):
     for filename in os.listdir(path):
         if os.path.isfile(os.path.join(path, filename)):
             if filename.endswith('.asc'):
                 print('Convert: ' + filename)
-                LtSpiceToLatex(filenameLTspice = filename, lt_spice_directory = lt_spice_directory, fullExample=fullExample)
+                LtSpiceToLatex(filenameLTspice = filename, lTSpiceDirectory = lTSpiceDirectory, fullExample=fullExample)
 
+componentsCount = 0
+componentsAddMemory = []
+def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lTSpiceDirectory = r'C:\Program Files\LTC\LTspiceXVII\lib\sym', fullExample=0):
 
-count_bauelemente = 0
-BauteileAddSpeicher = []
-def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_directory = r'C:\Program Files\LTC\LTspiceXVII\lib\sym', fullExample=0):
-
-	global count_bauelemente
-	global BauteileAddSpeicher
+	global componentsCount
+	global componentsAddMemory
 
 	saveFile = filenameLTspice[0:-len(filenameLTspice.split('.')[-1])] + r'tex'
 
-	if not lt_spice_directory[-1] == os.path.sep:
-		lt_spice_directory = lt_spice_directory + os.path.sep
-
+	if not lTSpiceDirectory[-1] == os.path.sep:
+		lTSpiceDirectory = lTSpiceDirectory + os.path.sep
 
 	def print2(zuPrint):
 		idx = 0;
@@ -31,13 +29,12 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 				print('{:>15}'.format(str(x)), end =" ")
 			print(' ')
 
-	def first_item(list_or_none):
-		if list_or_none: return list_or_none[0]
+	def firstItem(listOrEmpty):
+		if listOrEmpty: return listOrEmpty[0]
 
 	def findPinsInLib(name):
-		with open(lt_spice_directory + name + ".asy", "r") as f:
+		with open(lTSpiceDirectory + name + ".asy", "r") as f:
 			sym = f.readlines()
-
 		pin = []
 		words = []
 		for line in sym:
@@ -46,44 +43,40 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 				pin.append((int(words[1]),-int(words[2])))
 		return pin
 
+	def nodeSearch(coordinate):
+		node = [idx for idx, x1 in enumerate(nodeList) if x1[0] == coordinate]
+		if node == []:
+			node = [len(nodeList)]
+			nodeList.append([coordinate, [], [],[]])
+		return node[0]
 
-	def KnotenSuche(koordinate):
-		Knoten = [idx for idx, x1 in enumerate(KnotenListe) if x1[0] == koordinate]
-		if Knoten == []:
-			Knoten = [len(KnotenListe)]
-			KnotenListe.append([koordinate, [], [],[]])
-		return Knoten[0]
+	def wireAddition(order):
+		x1 = (int(order[1]) , -int(order[2]))
+		x2 = (int(order[3]) , -int(order[4]))
+		wireQuantity = len(wireList)
 
+		node1 = nodeSearch(x1)
+		node2 = nodeSearch(x2)
+		nodeList[node1][1].append(wireQuantity)
+		nodeList[node2][1].append(wireQuantity)
 
-	def drahtADD(befehl):
-		x1 = (int(befehl[1]) , -int(befehl[2]))
-		x2 = (int(befehl[3]) , -int(befehl[4]))
-		anzahlDrat = len(DrahtListe)
+		wireList.append([node1,node2])
 
-		Knoten1 = KnotenSuche(x1)
-		Knoten2 = KnotenSuche(x2)
-		KnotenListe[Knoten1][1].append(anzahlDrat)
-		KnotenListe[Knoten2][1].append(anzahlDrat)
-
-		DrahtListe.append([Knoten1,Knoten2])
-
-	def gndTxtADD(befehl):
-		x1 = (int(befehl[1]) , -int(befehl[2]))
-		anzahlBauteil = len(Bauteilliste)
-		Knoten = KnotenSuche(x1)
-		KnotenListe[Knoten][2].append(anzahlBauteil)
-		if befehl[0] == 'FLAG':
-			Bauteilliste.append([Knoten, 'FLAG', '',[]])
+	def groundTextAddition(order):
+		x1 = (int(order[1]) , -int(order[2]))
+		componentQuantity = len(componentList)
+		node = nodeSearch(x1)
+		nodeList[node][2].append(componentQuantity)
+		if order[0] == 'FLAG':
+			componentList.append([node, 'FLAG', '',[]])
 		else:
-			text = ' '.join(befehl[5:]).replace(';', '')
-			Bauteilliste.append([Knoten, 'TEXT', text,[]])
+			text = ' '.join(order[5:]).replace(';', '')
+			componentList.append([node, 'TEXT', text,[]])
 
-	def bauteilADD(idx,befehl):
-
-
-		x = np.array([int(befehl[2]) , -int(befehl[3])])
-		pin = findPinsInLib(befehl[1])
-		anzahlBauteil = len(Bauteilliste)
+	def componentAddition(idx,order):
+		x = np.array([int(order[2]) , -int(order[3])])
+		pin = findPinsInLib(order[1])
+		componentQuantity = len(componentList)
 
 		Rotation = {
 			'R0': [[1,0],[0,1]],
@@ -95,72 +88,74 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 			'M180': [[1,0],[0,-1]],
 			'M270': [[0,1],[1,0]],}
 
-		pin = np.dot(pin, Rotation[befehl[4]])
+		pin = np.dot(pin, Rotation[order[4]])
 
-		KnotenSpeicher = []
+		nodeMemory = []
 		for pinn in pin:
-			Knoten = KnotenSuche(tuple(pinn+x))
-			KnotenSpeicher.append(Knoten)
-			KnotenListe[Knoten][2].append(anzahlBauteil)
+			node = nodeSearch(tuple(pinn+x))
+			nodeMemory.append(node)
+			nodeList[node][2].append(componentQuantity)
 
-		bauteilbezeichnung = ''
+		componentDesignation = ''
 		for i in range(idx+1,idx+4):
 			if words[i][0]== 'SYMATTR':
-				bauteilbezeichnung = words[i][2]
-				if bauteilbezeichnung.count('_')>0 and bauteilbezeichnung.count('$')<2:
-					bauteilbezeichnung = r'$'+bauteilbezeichnung+r'$'
+				componentDesignation = words[i][2]
+				if componentDesignation.count('_')>0 and componentDesignation.count('$')<2:
+					componentDesignation = r'$'+componentDesignation+r'$'
 				break;
 
-		global count_bauelemente
-		global BauteileAddSpeicher
-		knotenbez = []
-		if not befehl[1] in bauteilmoeglich and not befehl[1] in SpezialBauteilName:
-			if not befehl[1] in BauteileAddSpeicher:
-				print('The following component is new: ' + befehl[1])
-				BauteileAddSpeicher.append(befehl[1])
+		global componentsCount
+		global componentsAddMemory
 
-			knotenbez = []
+		nodeRelated = []
+		if not order[1] in possibleComponent and not order[1] in specialComponentName:
+			if not order[1] in componentsAddMemory
+:
+				print('The following component is new: ' + order[1])
+				componentsAddMemory.append(order[1])
+
+			nodeRelated = []
 			for ind,t in enumerate(pin):
-				knotenbez.append('B'+str(count_bauelemente)+ ' X' + str(ind))
+				nodeRelated.append('B'+str(componentsCount)+ ' X' + str(ind))
 
-			count_bauelemente = count_bauelemente +1;
-			befehl[1] = befehl[1] + ' ' + (befehl[4]+'  ')[0:4]
-			for t,  name in enumerate(knotenbez):
-				KnotenListe[KnotenSpeicher[t]][3] = name
+			componentsCount = componentsCount +1;
+			order[1] = order[1] + ' ' + (order[4]+'  ')[0:4]
+			for t,  name in enumerate(nodeRelated):
+				nodeList[nodeMemory[t]][3] = name
 
-		if not befehl[1] in bauteilmoeglich and befehl[1] in SpezialBauteilName:
-			knotenbez = SpezialBauteilName[befehl[1]]  #[]
-			knotenbez = ['B'+str(count_bauelemente)+'.'+t for t in knotenbez]
-			count_bauelemente = count_bauelemente +1;
-			if befehl[4].count('M'):
-				if bauteilmoeglichSpezial[befehl[1]].count('yscale=-1'):
-					befehl[1] = befehl[1] + r',yscale=-1'+ ',xscale=-1' + ',rotate='+'-'+befehl[4][1:]+ r',yscale=-1' #+'\b'+'\b'+'1'
+		if not order[1] in possibleComponent and order[1] in specialComponentName:
+			nodeRelated = specialComponentName[order[1]]
+			nodeRelated = ['B'+str(componentsCount)+'.'+t for t in nodeRelated]
+			componentsCount = componentsCount +1;
+			if order[4].count('M'):
+				if isSpecialComponent[order[1]].count('yscale=-1'):
+					order[1] = order[1] + r',yscale=-1'+ ',xscale=-1' + ',rotate='+'-'+order[4][1:]+ r',yscale=-1' #+'\b'+'\b'+'1'
 				else:
-					befehl[1] = befehl[1]+ ',xscale=-1' +',rotate='+'-'+befehl[4][1:]
+					order[1] = order[1]+ ',xscale=-1' +',rotate='+'-'+order[4][1:]
 			else:
-				if bauteilmoeglichSpezial[befehl[1]].count('yscale=-1'):
-					befehl[1] = befehl[1] + r',yscale=-1'+',rotate='+'-'+befehl[4][1:]+ r',yscale=-1'
+				if isSpecialComponent[order[1]].count('yscale=-1'):
+					order[1] = order[1] + r',yscale=-1'+',rotate='+'-'+order[4][1:]+ r',yscale=-1'
 				else:
-					befehl[1] = befehl[1]+',rotate='+'-'+befehl[4][1:]
-			for t,  name in enumerate(knotenbez):
-				KnotenListe[KnotenSpeicher[t]][3] = name
+					order[1] = order[1]+',rotate='+'-'+order[4][1:]
+			for t,  name in enumerate(nodeRelated):
+				nodeList[nodeMemory[t]][3] = name
 
-		Bauteilliste.append([KnotenSpeicher, befehl[1], bauteilbezeichnung,knotenbez])
+		componentList.append([nodeMemory, befehl[1], componentDesignation, nodeRelated])
 
-	def KoordinatenKnotenSkalieren(scale):
-		for idx, x in enumerate(KnotenListe):
-			KnotenListe[idx][0] = np.array(KnotenListe[idx][0])*scale
+	def coordinateNodeScale(scale):
+		for idx, x in enumerate(nodeList):
+			nodeList[idx][0] = np.array(nodeList[idx][0])*scale
 
 	def listsearch(x,y):
 		return next((i for i,t in enumerate(x) if t == y), None)
 
-	def getKnotenname(knoten):
-		if KnotenListe[knoten][3]:
-			return '(' + str(KnotenListe[knoten][3]) + ')'
+	def getNodeName(node):
+		if nodeList[node][3]:
+			return '(' + str(nodeList[node][3]) + ')'
 		else:
-			return printXY(KnotenListe[knoten][0])
+			return printXY(nodeList[node][0])
 
-	SpezialBauteilName = {
+	specialComponentName = {
 		'mesfet': ['D','G','S'],
 		'njf': ['D','G','S'],
 		'nmos': ['D','G','S'],
@@ -175,7 +170,7 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 		'pnp2': ['C','B','E'],
 		}
 
-	bauteilmoeglichSpezial = {
+	isSpecialComponent = {
 		'mesfet': 'njfet,anchor=D',
 		'njf': 'njfet,anchor=D',
 		'nmos': 'nigfete,anchor=D',
@@ -190,7 +185,7 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 		'pnp2': 'pnp,anchor=D,yscale=-1',
 		}
 
-	bauteilmoeglich = {
+	possibleComponent = {
 			'bi': 'controlled current source,i=\ ',
 			'bi2': 'controlled current source,i_=\ ',
 			'bv': 'controlled voltage source,v_=\ ',
@@ -199,10 +194,8 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 			'current': 'current source,i=\ ',
 			'diode': 'D',
 			'f': 'controlled current source,i=\ ',
-			#'FerriteBead': 'twoport',
 			'h': 'voltage source,v_=\ ',
 			'ind': 'L',
-			#'ind2': 'L',
 			'LED': 'led',
 			'load': 'vR',
 			'load2': 'controlled current source,i=\ ',
@@ -219,14 +212,14 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 	def printXY(xy,offset =[0 , 0]):
 		return '(' + str(xy[0]-offset[0]) + ',' + str(xy[1]-offset[1]) + ')'
 
-	def convertNeuName(name):
+	def convertNewName(name):
 		ones = ["", "one","two","three","four", "five", "six","seven","eight","nine","ten"]
 		result = ''.join(ones[int(i)] if i.isdigit() else str(i) for i in name)
 		result = result.replace("-", "")
 		return result.replace("/", "")
 
 	def CreateDevFromLib(name, scale = 1/64):
-		with open(lt_spice_directory + name + ".asy", "r") as f:
+		with open(lTSpiceDirectory + name + ".asy", "r") as f:
 			sym = f.readlines()
 
 		pin = []
@@ -239,31 +232,30 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 		window = []
 		for l in sym:
 			words = l.split()
-			if words[0] == 'PIN':      # Das wird nicht gezeichnet
+			if words[0] == 'PIN':       # that is not drawn
 				pin.append([int(words[1])*scale,-int(words[2])*scale])
-			if words[0] == 'LINE':     #\draw (-1.5,0) -- (1.5,0);
+			if words[0] == 'LINE':      # \draw (-1.5,0) -- (1.5,0);
 				line.append([int(words[2])*scale,-int(words[3])*scale,int(words[4])*scale,-int(words[5])*scale])
-			if words[0] == 'RECTANGLE': #\draw (0,0) rectangle (1,1)
+			if words[0] == 'RECTANGLE': # \draw (0,0) rectangle (1,1)
 				rect.append([int(words[2])*scale,-int(words[3])*scale,int(words[4])*scale,-int(words[5])*scale])
-			if words[0] == 'CIRCLE':   #\draw[x radius=2, y radius=1] (0,0) ellipse [];
+			if words[0] == 'CIRCLE':    # \draw[x radius=2, y radius=1] (0,0) ellipse [];
 				circ.append([int(words[2])*scale,-int(words[3])*scale,int(words[4])*scale,-int(words[5])*scale])
-			if words[0] == 'ARC':      #\draw (3mm,0mm) arc (0:30:3mm);
+			if words[0] == 'ARC':       # \draw (3mm,0mm) arc (0:30:3mm);
 				arc.append([int(words[2])*scale,-int(words[3])*scale,int(words[4])*scale,-int(words[5])*scale,int(words[6])*scale,-int(words[7])*scale,int(words[8])*scale,-int(words[9])*scale])
-			if words[0] == 'TEXT':     #\node[right] at (0,1) {bla} ;
+			if words[0] == 'TEXT':      # \node[right] at (0,1) {bla} ;
 				text.append([int(words[1])*scale,-int(words[2])*scale ,words[3],' '.join(words[5:])])
-			if words[0] == 'WINDOW':      # Das wird nicht gezeichnet
+			if words[0] == 'WINDOW':    # that is not drawn
 				window.append([int(words[2])*scale,-int(words[3])*scale])
 
 		offset = pin[0] if pin else [0, 0]
 
-		newLib = '/def/' + convertNeuName(str(name)) + r'(#1)#2#3{%' + '\n' +  r'  \begin{scope}[#1,transform canvas={scale=1}]' + '\n'
+		newLib = '/def/' + convertNewName(str(name)) + r'(#1)#2#3{%' + '\n' +  r'  \begin{scope}[#1,transform canvas={scale=1}]' + '\n'
 
 		for t in line:
 			newLib = newLib + r'  \draw ' + printXY(t[0:],offset) + ' -- ' + printXY(t[2:],offset) + ';' + '\n'
 		if window:#\draw  (2,0.5) node[left] {$x$};
 			t = window[0]
 			newLib = newLib + r'  \draw ' + printXY(t[0:],offset) + ' coordinate (#2 text);'+'\n'
-			#newLib = newLib + r'  \draw ' + printXY(t[0:],offset) + ' node[right] {#3};\n'
 		for t in circ:
 			newLib = newLib + r'  \draw[x radius=' + str((t[2]-t[0])/2) + ', y radius=' + str((t[3]-t[1])/2) + ']'
 			newLib = newLib + printXY([(t[0]+t[2])/2,(t[1]+t[3])/2],offset) + ' ellipse [];' + '\n'
@@ -273,10 +265,6 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 			Ry = (t[3]-t[1])/2
 			StartWinkel = np.angle((t[4]-center[0])+1j*(t[5]-center[1]))*180/np.pi
 			EndWinkel = np.angle((t[6]-center[0])+1j*(t[7]-center[1]))*180/np.pi
-			#if Rx < 0 or Ry < 0:
-			#    t = StartWinkel
-			#    StartWinkel = EndWinkel
-			#    EndWinkel = t
 			strR = str(abs(Rx)) + ' and ' + str(abs(Ry))
 			newLib = newLib + r'  \draw ' + printXY(center,offset) + '++( ' + str(StartWinkel) +  ': ' + strR
 			newLib = newLib + ')  arc ('+ str(StartWinkel) +':'+ str(EndWinkel) +': ' + strR + ');' + '\n'
@@ -297,7 +285,6 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 
 		return newLib
 
-
 	with open(filenameLTspice, "r") as f:
 		data = f.readlines()
 
@@ -305,61 +292,47 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 	for line in data:
 		words.append( line.split())
 
-
-	BauteileAddSpeicher = []
-	KnotenListe = []
-	Bauteilliste = []
-	DrahtListe = []
-	count_bauelemente = 0
+	componentsAddMemory= []
+	nodeList = []
+	componentList = []
+	wireList = []
+	componentsCount = 0
 
 	for idx in enumerate(words):
 		if(idx[1][0] == 'WIRE'):
-			drahtADD(idx[1])
+			wireAddition(idx[1])
 
 		if(idx[1][0] == 'FLAG' or idx[1][0] == 'TEXT'):
-			gndTxtADD(idx[1])
+			groundTextAddition(idx[1])
 
 		if(idx[1][0] == 'SYMBOL'):
-			bauteilADD(idx[0],idx[1])
+			componentAddition(idx[0],idx[1])
 
-	KoordinatenKnotenSkalieren(1/64)
+	coordinateNodeScale(1/64)
 
+	for K1, K2 in wireList:                                       #Wire that directly connects two components is divided into two parts
+		if (len(nodeList[K1][2]) == 1 and len(nodeList[K2][2]) == 1
+			 and len(nodeList[K1][1]) == 1 and len(nodeList[K2][1]) == 1):
 
-	for K1, K2 in DrahtListe:                                       #Draht, der zwei Bauelemente dierekt verbindet wird in zwei Teile geteilt
-		if (len(KnotenListe[K1][2]) == 1 and len(KnotenListe[K2][2]) == 1
-			 and len(KnotenListe[K1][1]) == 1 and len(KnotenListe[K2][1]) == 1):
+			oldWire = nodeList[K1][1][0]
+			newWire = len(wireList)                             #New wire index
+			nodeList[K2][1] = [newWire]                          #Connect new wire to K2
 
-			DrahtAlt = KnotenListe[K1][1][0]
+			K3 = len(nodeList)                                    #Add nodes between the two old nodes
+			xyK3 = (nodeList[K1][0]+nodeList[K2][0])/2
+			nodeList.append([xyK3, [newWire, oldWire], [],[]])
 
-			neuerDraht = len(DrahtListe)                             #Index für neuen Draht
-			KnotenListe[K2][1] = [neuerDraht]                          #neuen Draht mit K2 verbinden
+			wireList.append([K3,K2])                               #add new wire
+			wireList[oldWire][1] = K3                             #Connect the old wire to the new knot
 
-			K3 = len(KnotenListe)                                    #Knoten zwischen den beiden alten Knoten hinzufügen
-			xyK3 = (KnotenListe[K1][0]+KnotenListe[K2][0])/2
-			KnotenListe.append([xyK3, [neuerDraht, DrahtAlt], [],[]])
-
-			DrahtListe.append([K3,K2])                               #neuen Draht hinzufügen
-			DrahtListe[DrahtAlt][1] = K3                             #Alten Draht mit neuem Knoten verbinden
-
-	knotenLaufIndex = 0
-	KnotenKoordinaten = ''
-	for ind,t in enumerate(KnotenListe):
-		if not KnotenListe[ind][3] and (len(KnotenListe[ind][1])+len(KnotenListe[ind][2])) > 2:
-			KnotenListe[ind][3] = 'X' + str(knotenLaufIndex)
-			xy = printXY(KnotenListe[ind][0])
-			KnotenKoordinaten = KnotenKoordinaten + '\draw ' + xy + ' to[short,-*] ' + xy + ' coordinate (' + KnotenListe[ind][3] + ');\n'
-			knotenLaufIndex = knotenLaufIndex + 1
-
-	#print('DrahtListe:')
-	#print('       [Index Knoten1]  [Index Knoten2]')
-	#print2(DrahtListe)
-	#print('Bauteilliste:')
-	#print('        [Index Knoten]      Bauelement            Name      Knotenname')
-	#print2(Bauteilliste)
-	#print('KnotenListe:')
-	#print('                 [x,y]         Leitung      Bauelement      Knotenname')
-	#print2(KnotenListe)
-
+	currentNodeIndex = 0
+	nodeCoordinates = ''
+	for ind,t in enumerate(nodeList):
+		if not nodeList[ind][3] and (len(nodeList[ind][1])+len(nodeList[ind][2])) > 2:
+			nodeList[ind][3] = 'X' + str(currentNodeIndex)
+			xy = printXY(nodeList[ind][0])
+			nodeCoordinates = nodeCoordinates + '\draw ' + xy + ' to[short,-*] ' + xy + ' coordinate (' + nodeList[ind][3] + ');\n'
+			currentNodeIndex = currentNodeIndex + 1
 
 	f = open(saveFile, "w")
 
@@ -369,65 +342,64 @@ def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_direct
 
 	f.write('\\ctikzset{tripoles/mos style/arrows} \n\\begin{circuitikz}[transform shape,scale=1] \n \n')
 
-	f.write(KnotenKoordinaten)
+	f.write(nodeCoordinates)
 
-	for t in BauteileAddSpeicher:
+	for t in componentsAddMemory:
 		f.write(CreateDevFromLib(t,scale=1/64))
 
-	for Knoten, Bauteil, Name , Knotenname in Bauteilliste:
-		if Bauteil in bauteilmoeglich:
+	for node, component, name , nodeName in componentList:
+		if component in possibleComponent:
 			xy = [[],[]]
-			for idx, K1 in enumerate(Knoten):
-				DrahtNum = first_item(KnotenListe[K1][1])
-				if not isinstance(DrahtNum, int) or KnotenListe[K1][3]:  # Am Bauelement ist keine Leitung angeschlossen
+			for idx, K1 in enumerate(node):
+				wireNumber = firstItem(nodeList[K1][1])
+				if not isinstance(wireNumber, int) or nodeList[K1][3]:  # No cable is connected to the component
 					xy[idx] = K1
 				else:
-					if  DrahtListe[DrahtNum][0] == K1: #Bauelement zwischen IndexK1-IndexK2 oder IndexK2-IndexK1
-						K2 = DrahtListe[DrahtNum][1]
+					if  wireList[wireNumber][0] == K1: #Component between IndexK1-IndexK2 or IndexK2-IndexK1
+						K2 = wireList[wireNumber][1]
 					else:
-						K2 = DrahtListe[DrahtNum][0]
+						K2 = wireList[wireNumber][0]
 
 					xy[idx] = K2
-					DrahtListe[DrahtNum] = []
-			f.write('\\draw %s to[%s,l=%s] %s ;\n' % (getKnotenname(xy[0]),bauteilmoeglich[Bauteil],Name,getKnotenname(xy[1])))
+					wireList[wireNumber] = []
+			f.write('\\draw %s to[%s,l=%s] %s ;\n' % (getNodeName(xy[0]),possibleComponent[component],Name,getNodeName(xy[1])))
 
-		if Bauteil == 'FLAG':
-			f.write('\\draw %s node[ground] {} ;\n' % (getKnotenname(Knoten),))
+		if component == 'FLAG':
+			f.write('\\draw %s node[ground] {} ;\n' % (getNodeName(node),))
 
-		if Bauteil== 'TEXT':
-			f.write('\\node[right] at %s {%s} ;\n' % (getKnotenname(Knoten),Name))
+		if component== 'TEXT':
+			f.write('\\node[right] at %s {%s} ;\n' % (getNodeName(node),Name))
 
-		temp = Bauteil.split(',')[0]
-		if temp in SpezialBauteilName:
-			rot = Bauteil[len(temp):]
+		temp = component.split(',')[0]
+		if temp in specialComponentName:
+			rot = component[len(temp):]
 			rotation = rot.split('rotate=')[1].split(',')[0]
-			Bauteil = Bauteil.split(',')[0]
-			tKnotenname = Knotenname[0].partition(".")[0]
+			component = component.split(',')[0]
+			tNodeName = nodeName[0].partition(".")[0]
 			if not rot.count('xscale=-1'):
-				if bauteilmoeglichSpezial[Bauteil].count('yscale=-1'):
-					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{\\reflectbox{%s}}} ;\n' % (printXY(KnotenListe[Knoten[0]][0]),bauteilmoeglichSpezial[Bauteil]+rot,tKnotenname,str(180+int(rotation)),Name))
+				if isSpecialComponent[component].count('yscale=-1'):
+					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{\\reflectbox{%s}}} ;\n' % (printXY(nodeList[node[0]][0]),isSpecialComponent[component]+rot,tNodeName,str(180+int(rotation)),name))
 				else:
-					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{%s}} ;\n' % (printXY(KnotenListe[Knoten[0]][0]),bauteilmoeglichSpezial[Bauteil]+rot,tKnotenname,str(-int(rotation)),Name))
+					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{%s}} ;\n' % (printXY(nodeList[node[0]][0]),isSpecialComponent[component]+rot,tNodeName,str(-int(rotation)),name))
 			else:
-				if bauteilmoeglichSpezial[Bauteil].count('yscale=-1'):
-					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{%s}} ;\n' % (printXY(KnotenListe[Knoten[0]][0]),bauteilmoeglichSpezial[Bauteil]+rot,tKnotenname,str(180+int(rotation)),Name))
+				if isSpecialComponent[component].count('yscale=-1'):
+					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{%s}} ;\n' % (printXY(nodeList[node[0]][0]),isSpecialComponent[component]+rot,tNodeName,str(180+int(rotation)),name))
 				else:
-					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{\\reflectbox{%s}}} ;\n' % (printXY(KnotenListe[Knoten[0]][0]),bauteilmoeglichSpezial[Bauteil]+rot,tKnotenname,str(-int(rotation)),Name))
+					f.write('\\draw %s node[%s](%s){\\rotatebox{%s}{\\reflectbox{%s}}} ;\n' % (printXY(nodeList[node[0]][0]),isSpecialComponent[component]+rot,tNodeName,str(-int(rotation)),name))
 
-		if Bauteil[:-5] in BauteileAddSpeicher:
-			rot = Bauteil[-4:]
+		if component[:-5] in componentsAddMemory:
+			rot = component[-4:]
 			if rot[0] == 'M':
 				rot =  'rotate=' + rot[1:] + ',xscale=-1'
 			else:
 				rot =  'rotate=' + rot[1:]
 
-			Bauteil = Bauteil[:-5]
-			tKnotenname = Knotenname[0].partition(" ")[0]
-			f.write('\\%s (shift={%s},%s) {%s} {%s};\n' % (convertNeuName(Bauteil), printXY(KnotenListe[Knoten[0]][0]),rot,tKnotenname,Name))
-	for x in DrahtListe:
+			component = component[:-5]
+			tNodeName = nodeName[0].partition(" ")[0]
+			f.write('\\%s (shift={%s},%s) {%s} {%s};\n' % (convertNewName(component), printXY(nodeList[node[0]][0]),rot,tNodeName,name))
+	for x in wireList:
 		if len(x) != 0:
-			f.write('\\draw %s to[short,-] %s ;\n' % (getKnotenname(x[0]),getKnotenname(x[1])))
-
+			f.write('\\draw %s to[short,-] %s ;\n' % (getNodeName(x[0]),getNodeName(x[1])))
 
 	f.write('\n\\end{circuitikz}')
 	if fullExample:
