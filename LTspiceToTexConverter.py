@@ -1,7 +1,6 @@
 import numpy as np
 import os
 
-import os
 def ConvertForAllLTspiceFilesFormFolderToTEX(path='.', lt_spice_directory = r'C:\Program Files\LTC\LTspiceXVII\lib\sym', fullExample=0):
     for filename in os.listdir(path):
         if os.path.isfile(os.path.join(path, filename)):
@@ -9,18 +8,19 @@ def ConvertForAllLTspiceFilesFormFolderToTEX(path='.', lt_spice_directory = r'C:
                 print('Convert: ' + filename)
                 LtSpiceToLatex(filenameLTspice = filename, lt_spice_directory = lt_spice_directory, fullExample=fullExample)
 
-			
+
 count_bauelemente = 0
 BauteileAddSpeicher = []
 def LtSpiceToLatex(saveFile = '', filenameLTspice = 'Draft.asc', lt_spice_directory = r'C:\Program Files\LTC\LTspiceXVII\lib\sym', fullExample=0):
 
 	global count_bauelemente
 	global BauteileAddSpeicher
-	
+
 	saveFile = filenameLTspice[0:-len(filenameLTspice.split('.')[-1])] + r'tex'
-	
+
 	if not lt_spice_directory[-1] == os.path.sep:
 		lt_spice_directory = lt_spice_directory + os.path.sep
+
 
 	def print2(zuPrint):
 		idx = 0;
